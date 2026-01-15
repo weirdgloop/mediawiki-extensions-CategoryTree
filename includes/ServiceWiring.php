@@ -43,7 +43,8 @@ return [
 			$services->getContentLanguage(),
 			$services->getConnectionProvider(),
 			$services->getLinkBatchFactory(),
-			$services->getLinkRenderer()
+			$services->getLinkRenderer(),
+			$services->getLinksMigration(),
 		);
 	},
 ];

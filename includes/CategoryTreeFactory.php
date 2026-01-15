@@ -9,6 +9,7 @@ use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Config\Config;
 use MediaWiki\Language\Language;
 use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\Linker\LinksMigration;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class CategoryTreeFactory {
@@ -18,6 +19,7 @@ class CategoryTreeFactory {
 		private readonly IConnectionProvider $dbProvider,
 		private readonly LinkBatchFactory $linkBatchFactory,
 		private readonly LinkRenderer $linkRenderer,
+		private readonly LinksMigration $linksMigration,
 	) {
 	}
 
@@ -30,7 +32,8 @@ class CategoryTreeFactory {
 			$this->contLang,
 			$this->dbProvider,
 			$this->linkBatchFactory,
-			$this->linkRenderer
+			$this->linkRenderer,
+			$this->linksMigration,
 		);
 	}
 }

@@ -33,6 +33,7 @@ use MediaWiki\Extension\Translate\PageTranslation\TranslatablePage;
 use MediaWiki\Html\Html;
 use MediaWiki\Language\Language;
 use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\Linker\LinksMigration;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\Registration\ExtensionRegistry;
@@ -53,6 +54,7 @@ class CategoryTree {
 		private readonly IConnectionProvider $dbProvider,
 		private readonly LinkBatchFactory $linkBatchFactory,
 		private readonly LinkRenderer $linkRenderer,
+		private readonly LinksMigration $linksMigration,
 	) {
 		$this->optionManager = new OptionManager( $options, $config );
 	}
@@ -140,9 +142,10 @@ class CategoryTree {
 				->join( 'categorylinks', null, 'cl_from = page_id' );
 		}
 
-		$migrationStage = $this->config->get( MainConfigNames::CategoryLinksSchemaMigrationStage );
-
-		if ( $migrationStage & SCHEMA_COMPAT_READ_OLD ) {
+		// WGL - Inspired by DPL4's method of detecting READ_NEW and READ_OLD without using the config removed in MW 1.45.
+		$queryInfo = $this->linksMigration->getQueryInfo( 'categorylinks' );
+		$useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
+		if ( !$useLinkTarget ) {
 			$queryBuilder->select( 'cl_to' );
 		} else {
 			$queryBuilder->select( [ 'cl_to' => 'lt_title' ] );
@@ -157,7 +160,7 @@ class CategoryTree {
 				] )
 				->where( [ 'cl_from' => $title->getArticleID() ] );
 		} else {
-			if ( $migrationStage & SCHEMA_COMPAT_READ_OLD ) {
+			if ( !$useLinkTarget ) {
 				$queryBuilder->where( [ 'cl_to' => $title->getDBkey() ] );
 				$queryBuilder->useIndex( [ 'categorylinks' => 'cl_sortkey' ] );
 			} else {
@@ -256,8 +259,6 @@ class CategoryTree {
 	public function renderParents( Title $title ): string {
 		$dbr = $this->dbProvider->getReplicaDatabase();
 
-		$migrationStage = $this->config->get( MainConfigNames::CategoryLinksSchemaMigrationStage );
-
 		$qb = $dbr->newSelectQueryBuilder()
 			->from( 'categorylinks' )
 			->where( [ 'cl_from' => $title->getArticleID() ] )
@@ -265,7 +266,10 @@ class CategoryTree {
 			->orderBy( 'cl_to' )
 			->caller( __METHOD__ );
 
-		if ( $migrationStage & SCHEMA_COMPAT_READ_OLD ) {
+		// WGL - Inspired by DPL4's method of detecting READ_NEW and READ_OLD without using the config removed in MW 1.45.
+		$queryInfo = $this->linksMigration->getQueryInfo( 'categorylinks' );
+		$useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
+		if ( !$useLinkTarget ) {
 			$qb->select( 'cl_to' );
 		} else {
 			$qb->select( [ 'cl_to' => 'lt_title' ] );
