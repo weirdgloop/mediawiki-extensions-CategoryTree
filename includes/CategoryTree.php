@@ -46,6 +46,7 @@ use Wikimedia\Rdbms\IConnectionProvider;
  */
 class CategoryTree {
 	public readonly OptionManager $optionManager;
+	private readonly bool $useLinkTarget;
 
 	public function __construct(
 		array $options,
@@ -57,6 +58,14 @@ class CategoryTree {
 		private readonly LinksMigration $linksMigration,
 	) {
 		$this->optionManager = new OptionManager( $options, $config );
+		// WGL - Add categorylinks migration support that's safe for MW 1.39+.
+		if ( array_key_exists( 'categorylinks', LinksMigration::$mapping ) ) {
+			// Inspired by how DPL4 checks for the categorylinks migration without using the config removed in upstream MW 1.45.
+			$queryInfo = $this->linksMigration->getQueryInfo( 'categorylinks' );
+			$this->useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
+		} else {
+			$this->useLinkTarget = false;
+		}
 	}
 
 	/**
@@ -142,10 +151,8 @@ class CategoryTree {
 				->join( 'categorylinks', null, 'cl_from = page_id' );
 		}
 
-		// WGL - Inspired by DPL4's method of detecting READ_NEW and READ_OLD without using the config removed in MW 1.45.
-		$queryInfo = $this->linksMigration->getQueryInfo( 'categorylinks' );
-		$useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
-		if ( !$useLinkTarget ) {
+		// WGL - Add categorylinks migration support that's safe for MW 1.39+.
+		if ( !$this->useLinkTarget ) {
 			$queryBuilder->select( 'cl_to' );
 		} else {
 			$queryBuilder->select( [ 'cl_to' => 'lt_title' ] );
@@ -160,7 +167,8 @@ class CategoryTree {
 				] )
 				->where( [ 'cl_from' => $title->getArticleID() ] );
 		} else {
-			if ( !$useLinkTarget ) {
+			// WGL - Add categorylinks migration support that's safe for MW 1.39+.
+			if ( !$this->useLinkTarget ) {
 				$queryBuilder->where( [ 'cl_to' => $title->getDBkey() ] );
 				$queryBuilder->useIndex( [ 'categorylinks' => 'cl_sortkey' ] );
 			} else {
@@ -266,10 +274,8 @@ class CategoryTree {
 			->orderBy( 'cl_to' )
 			->caller( __METHOD__ );
 
-		// WGL - Inspired by DPL4's method of detecting READ_NEW and READ_OLD without using the config removed in MW 1.45.
-		$queryInfo = $this->linksMigration->getQueryInfo( 'categorylinks' );
-		$useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
-		if ( !$useLinkTarget ) {
+		// WGL - Add categorylinks migration support that's safe for MW 1.39+.
+		if ( !$this->useLinkTarget ) {
 			$qb->select( 'cl_to' );
 		} else {
 			$qb->select( [ 'cl_to' => 'lt_title' ] );
